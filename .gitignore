@@ -40,4 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+.vscode/
+
 target/
+scripts/build_tar.py
+scripts/*.tar
+scripts/*.tar.gz

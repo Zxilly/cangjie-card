@@ -2,6 +2,7 @@
 name = "cangjie-card"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["macros", "fs"] }
@@ -13,7 +14,9 @@ tar = "0.4"
 [build-dependencies]
 reqwest = { version = "0.12", features = ["blocking"] }
 tokio = { version = "1", features = ["full"] }
+octocrab = { version = "0.43", features = ["stream"] }
+futures-util = "0.3"
 
 [[bin]]
-name = "handler"
-path = "api/handler.rs"
+name = "refresh"
+path = "api/refresh.rs"
