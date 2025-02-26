@@ -1,8 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 
 export default function Home() {
   return (

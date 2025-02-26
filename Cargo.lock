@@ -161,13 +161,17 @@ name = "cangjie-card"
 version = "0.1.0"
 dependencies = [
  "futures-util",
+ "git2",
  "include-bytes-zstd",
  "octocrab",
+ "redis",
  "reqwest",
  "serde_json",
  "tar",
  "tokio",
+ "url",
  "vercel_runtime",
+ "zstd 0.13.3",
 ]
 
 [[package]]
@@ -189,9 +193,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.39"
+version = "0.4.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
+checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -199,7 +203,17 @@ dependencies = [
  "num-traits",
  "serde",
  "wasm-bindgen",
- "windows-targets",
+ "windows-link",
+]
+
+[[package]]
+name = "combine"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
+dependencies = [
+ "bytes",
+ "memchr",
 ]
 
 [[package]]
@@ -446,6 +460,21 @@ name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
+
+[[package]]
+name = "git2"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fda788993cc341f69012feba8bf45c0ba4f3291fcc08e214b4d5a7332d88aff"
+dependencies = [
+ "bitflags",
+ "libc",
+ "libgit2-sys",
+ "log",
+ "openssl-probe",
+ "openssl-sys",
+ "url",
+]
 
 [[package]]
 name = "glob"
@@ -801,7 +830,7 @@ checksum = "0663850f077a70c69671296dab8b5770421ef81a761f9cacff760b86be1fb077"
 dependencies = [
  "proc-macro-crate",
  "syn 1.0.109",
- "zstd",
+ "zstd 0.12.4",
 ]
 
 [[package]]
@@ -959,6 +988,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
+name = "libgit2-sys"
+version = "0.18.0+1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1a117465e7e1597e8febea8bb0c410f1c7fb93b1e1cddf34363f8390367ffec"
+dependencies = [
+ "cc",
+ "libc",
+ "libz-sys",
+ "openssl-sys",
+ "pkg-config",
+]
+
+[[package]]
 name = "libredox"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -967,6 +1009,18 @@ dependencies = [
  "bitflags",
  "libc",
  "redox_syscall",
+]
+
+[[package]]
+name = "libz-sys"
+version = "1.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df9b68e50e6e0b26f672573834882eb57759f6db9b3be2ea3c35c91188bb4eaa"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]
@@ -1178,6 +1232,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 
 [[package]]
+name = "openssl-src"
+version = "300.4.2+3.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "168ce4e058f975fe43e89d9ccf78ca668601887ae736090aacc23ae353c298e2"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1185,6 +1248,7 @@ checksum = "8bb61ea9811cc39e3c2069f40b8b8e2e70d8569b361f879786cc7ed48b777cdd"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -1309,6 +1373,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4dccaaaf89514f546c693ddc140f729f958c247918a13380cccc6078391acc"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "redis"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9568894e8bdefd16512bca9e286a9d2abc27773609aa4eb7f428497d64df4373"
+dependencies = [
+ "arc-swap",
+ "combine",
+ "itoa",
+ "native-tls",
+ "num-bigint",
+ "percent-encoding",
+ "ryu",
+ "sha1_smol",
+ "socket2",
+ "url",
 ]
 
 [[package]]
@@ -1631,6 +1713,12 @@ dependencies = [
  "ryu",
  "serde",
 ]
+
+[[package]]
+name = "sha1_smol"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 
 [[package]]
 name = "sharded-slab"
@@ -2379,6 +2467,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-link"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6dccfd733ce2b1753b03b6d3c65edf020262ea35e20ccdf3e288043e6dd620e3"
+
+[[package]]
 name = "windows-registry"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2610,7 +2704,16 @@ version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a27595e173641171fc74a1232b7b1c7a7cb6e18222c11e9dfb9888fa424c53c"
 dependencies = [
- "zstd-safe",
+ "zstd-safe 6.0.6",
+]
+
+[[package]]
+name = "zstd"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
+dependencies = [
+ "zstd-safe 7.2.3",
 ]
 
 [[package]]
@@ -2620,6 +2723,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee98ffd0b48ee95e6c5168188e44a54550b1564d9d530ee21d5f0eaed1069581"
 dependencies = [
  "libc",
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "7.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3051792fbdc2e1e143244dc28c60f73d8470e93f3f9cbd0ead44da5ed802722"
+dependencies = [
  "zstd-sys",
 ]
 

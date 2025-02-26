@@ -41,8 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 .vscode/
+.idea/
 
 target/
-scripts/build_tar.py
 scripts/*.tar
 scripts/*.tar.gz
+.env*.local

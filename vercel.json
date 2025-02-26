@@ -3,5 +3,8 @@
         "api/**/*.rs": {
             "runtime": "vercel-rust@4.0.8"
         }
+    },
+    "git": {
+        "deploymentEnabled": false
     }
 }
