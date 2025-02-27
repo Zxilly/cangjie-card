@@ -11,15 +11,16 @@ use url::Url;
 use zstd::stream::decode_all;
 use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
 
+static CJLINT_TAR_ZST: &'static [u8] = include!(env!("CJLINT_DATA_FILE"));
+
 async fn ensure_cjlint_extracted() -> Result<(), std::io::Error> {
     let target_dir = Path::new("/tmp/cj");
     // /tmp/cj/tools/bin/cjlint
     let cjlint_path = target_dir.join("tools/bin/cjlint");
 
     if !target_dir.exists() || !cjlint_path.exists() {
-        let cjlint_tar_zst = include!(env!("CJLINT_DATA_FILE"));
 
-        let cjlint_tar = decode_all(cjlint_tar_zst.as_ref())?;
+        let cjlint_tar = decode_all(CJLINT_TAR_ZST.as_ref())?;
 
         fs::create_dir_all(target_dir).await?;
 
