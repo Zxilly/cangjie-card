@@ -88,7 +88,7 @@ async fn run_cjlint() -> Result<String, Error> {
 
 async fn save_to_redis(repo: &str, content: &str) -> Result<(), Error> {
     let redis_url =
-        env::var("UPSTASH_REDIS_URL").map_err(|_| Error::from("UPSTASH_REDIS_URL not set"))?;
+        env::var("KV_URL").map_err(|_| Error::from("KV_URL not set"))?;
 
     let client = Client::open(redis_url)
         .map_err(|e| Error::from(format!("Failed to create Redis client: {}", e)))?;
