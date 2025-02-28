@@ -5,6 +5,7 @@ use std::env;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
+use std::time::SystemTime;
 use std::{collections::HashMap, io::Cursor};
 use tar::Archive;
 use tokio::fs;
@@ -191,9 +192,9 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     let analysis_result = AnalysisResult {
         cjlint: analysis_result,
         created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_secs(),
+            .as_secs() as i64,
         commit,
     };
     let content = serde_json::to_string(&analysis_result).unwrap();

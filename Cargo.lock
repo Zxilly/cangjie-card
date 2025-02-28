@@ -166,6 +166,7 @@ dependencies = [
  "octocrab",
  "redis",
  "reqwest",
+ "serde",
  "serde_json",
  "tar",
  "tokio",
