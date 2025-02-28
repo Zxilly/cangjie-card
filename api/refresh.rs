@@ -58,7 +58,7 @@ async fn ensure_cjlint_extracted() -> Result<(), std::io::Error> {
     let cjlint_path = target_dir.join("tools/bin/cjlint");
 
     if !target_dir.exists() || !cjlint_path.exists() {
-        let cjlint_tar = decode_all(CJLINT_TAR_ZST.as_ref())?;
+        let cjlint_tar = decode_all(CJLINT_TAR_ZST.as_ref() as &[u8])?;
 
         fs::create_dir_all(target_dir).await?;
 
