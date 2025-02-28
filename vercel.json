@@ -6,5 +6,6 @@
     },
     "git": {
         "deploymentEnabled": false
-    }
+    },
+    "devCommand": "pnpm dev"
 }

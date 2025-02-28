@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Redis } from '@upstash/redis'
+import { AnalysisLoading } from "@/components/analysis/AnalysisLoading"
+import { RefreshButton } from "@/components/analysis/RefreshButton"
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL!,
@@ -9,6 +10,49 @@ const redis = new Redis({
 })
 
 type DefectLevel = 'MANDATORY' | 'SUGGESTIONS'
+
+// 添加评分权重常量
+const DEFECT_WEIGHTS: Record<DefectLevel, number> = {
+  MANDATORY: 10, // 必须修复的问题扣10分
+  SUGGESTIONS: 3, // 建议修复的问题扣3分
+}
+
+// 添加等级定义
+const GRADE_DEFINITIONS = {
+  'A+': { minScore: 95, description: '代码质量极其优秀' },
+  'A': { minScore: 90, description: '代码质量优秀' },
+  'B+': { minScore: 85, description: '代码质量良好' },
+  'B': { minScore: 80, description: '代码质量一般' },
+  'C': { minScore: 70, description: '代码质量需要改进' },
+  'D': { minScore: 0, description: '代码质量亟待提升' },
+} as const
+
+type Grade = keyof typeof GRADE_DEFINITIONS
+
+// 添加计算分数的函数
+const calculateScore = (results: AnalysisResult[]): { score: number; grade: Grade } => {
+  let totalDeduction = 0
+
+  // 计算总扣分
+  results.forEach(result => {
+    totalDeduction += DEFECT_WEIGHTS[result.defectLevel]
+  })
+
+  // 计算最终分数（满分100）
+  const score = Math.max(0, 100 - totalDeduction)
+
+  // 确定等级
+  let grade: Grade = 'D'
+  for (const [g, def] of Object.entries(GRADE_DEFINITIONS)) {
+    if (score >= def.minScore) {
+      grade = g as Grade
+      break
+    }
+  }
+
+  return { score, grade }
+}
+
 type AnalysisResult = {
   file: string
   line: number
@@ -26,6 +70,7 @@ type AnalysisResponse = {
   cjlint: AnalysisResult[]
   created_at: number
   commit: string
+  package_name: string
 }
 
 const DefectLevelColor: Record<DefectLevel, string> = {
@@ -38,6 +83,31 @@ const DefectLevelText: Record<DefectLevel, string> = {
   SUGGESTIONS: '建议修复'
 }
 
+// 添加格式化相对时间的函数
+const formatRelativeTime = (timestamp: number): string => {
+  const now = Math.floor(Date.now() / 1000)
+  const diff = now - timestamp
+  
+  if (diff < 60) {
+    return '刚刚'
+  } else if (diff < 3600) {
+    const minutes = Math.floor(diff / 60)
+    return `${minutes}分钟前`
+  } else if (diff < 86400) {
+    const hours = Math.floor(diff / 3600)
+    return `${hours}小时前`
+  } else if (diff < 2592000) {
+    const days = Math.floor(diff / 86400)
+    return `${days}天前`
+  } else if (diff < 31536000) {
+    const months = Math.floor(diff / 2592000)
+    return `${months}个月前`
+  } else {
+    const years = Math.floor(diff / 31536000)
+    return `${years}年前`
+  }
+}
+
 export default async function ResultPage({
   searchParams,
 }: {
@@ -48,29 +118,10 @@ export default async function ResultPage({
   const analysisResponse = await redis.get<AnalysisResponse>(`cjlint_${repo}`)
   
   if (!analysisResponse) {
-    return (
-      <main className="flex min-h-screen flex-col items-center p-4 sm:p-6 pt-24">
-        <div className="w-full max-w-7xl">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold">暂无分析结果</CardTitle>
-              <CardDescription className="text-lg">
-                仓库地址: {repo}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-gray-600 mb-4">正在分析中，请稍后刷新页面...</p>
-                <Link href="/">
-                  <Button variant="outline">返回首页</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    )
+    return <AnalysisLoading repo={repo} />
   }
+
+  const package_name = analysisResponse.package_name;
 
   const groupedResults = analysisResponse.cjlint.reduce((acc, curr) => {
     if (!acc[curr.defectLevel]) {
@@ -80,76 +131,71 @@ export default async function ResultPage({
     return acc
   }, {} as Record<DefectLevel, AnalysisResult[]>)
 
+  const { score, grade } = calculateScore(analysisResponse.cjlint)
+  const gradeDescription = GRADE_DEFINITIONS[grade].description
   const totalIssues = analysisResponse.cjlint.length
-  const grade = totalIssues === 0 ? 'A+' : totalIssues <= 5 ? 'A' : totalIssues <= 10 ? 'B' : 'C'
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-4 sm:p-6 pt-24">
+    <main className="flex min-h-screen flex-col items-center p-4 sm:p-6">
       <div className="w-full max-w-7xl">
+        <div className="mb-8">
+          <div className="flex justify-between items-start">
+            <h1 className="text-4xl font-bold">{package_name}</h1>
+            <div className="text-sm text-gray-600 space-y-1 text-right">
+              <div>仓库：{repo}</div>
+              <div>Commit：{analysisResponse.commit}</div>
+            </div>
+          </div>
+        </div>
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-          <h1 className="text-2xl font-bold">Report for {repo}</h1>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button variant="outline" size="sm" className="h-8 px-3 py-0 flex-1 sm:flex-none justify-center">
-              cangjie report A+
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 px-3 py-0 flex-1 sm:flex-none justify-center">
-              Tweet
+              Cangjie 分析报告 A+
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column - Stats */}
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6">
-            <Card>
+          <div className="lg:col-span-3">
+            <Card className="mb-6">
               <CardHeader className="pb-3">
                 <div className="text-4xl font-bold mb-2">{grade}</div>
                 <div className="text-sm text-gray-600">
-                  Excellent!
+                  {gradeDescription}
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="text-sm text-gray-500">
-                  Found {totalIssues} issues across {analysisResponse.cjlint.length} files
+                  在分析中发现 {totalIssues} 个问题，得分：{score.toFixed(1)}
                 </div>
               </CardContent>
             </Card>
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold mb-3">Results</h3>
+                <h3 className="text-lg font-semibold mb-3">分析结果</h3>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="font-medium">cjlint</span>
-                    <span className="text-green-600">{totalIssues === 0 ? '93%' : '85%'}</span>
+                    <span className="text-green-600">{score.toFixed(1)}%</span>
                   </div>
                 </div>
               </div>
 
-              <div className="text-sm text-gray-500">
-                Last refresh: 4 hours ago
-                <Button variant="link" className="text-sm p-0 h-auto ml-2">
-                  Refresh now
-                </Button>
+              <div className="space-y-2">
+                <div className="text-sm text-gray-500">
+                  上次更新：{formatRelativeTime(analysisResponse.created_at)}
+                </div>
+                <RefreshButton repo={repo} />
               </div>
             </div>
           </div>
 
-          {/* Right Column - Analysis Results */}
           <div className="lg:col-span-9">
             <Card>
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="text-lg font-semibold">cjlint</div>
-                  <div className="text-sm text-gray-500">
-                    提交: {analysisResponse.commit.substring(0, 7)}
-                    <span className="hidden sm:inline ml-4">
-                      分析时间: {new Date(analysisResponse.created_at * 1000).toLocaleString()}
-                    </span>
-                    <span className="block sm:hidden">
-                      分析时间: {new Date(analysisResponse.created_at * 1000).toLocaleString()}
-                    </span>
-                  </div>
                 </div>
               </CardHeader>
               <CardContent>

@@ -7,7 +7,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <Card className="w-[600px]">
         <CardHeader>
-          <CardTitle className="text-center text-3xl font-bold">仓颉代码质量检查</CardTitle>
+          <CardTitle className="text-center text-3xl font-bold">仓禀</CardTitle>
           <CardDescription className="text-center text-lg mt-2">
             输入Git仓库地址，获取代码质量报告
           </CardDescription>
@@ -16,7 +16,7 @@ export default function Home() {
           <form className="flex flex-col gap-4" action="/result" method="GET">
             <Input 
               name="repo"
-              placeholder="https://github.com/username/repository"
+              placeholder="https://github.com/username/repository.git"
               className="text-lg p-6"
             />
             <Button type="submit" className="w-full text-lg p-6">

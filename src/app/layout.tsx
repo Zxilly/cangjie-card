@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cangjie Card",
-  description: "A report card for your Cangjie projects",
+  title: "仓禀",
+  description: "仓禀，一个用于分析代码仓库的工具",
 };
 
 export default function RootLayout({
