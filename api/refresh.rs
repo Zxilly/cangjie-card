@@ -12,6 +12,8 @@ use tokio::fs;
 use url::Url;
 use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
 use zstd::stream::decode_all;
+use glob::glob;
+use toml::Value;
 
 static CJLINT_TAR_ZST: &'static [u8] = include!(env!("CJLINT_DATA_FILE"));
 
@@ -47,6 +49,7 @@ pub struct AnalysisResult {
     pub cjlint: Vec<AnalysisResultItem>,
     pub created_at: i64,
     pub commit: String,
+    pub package_name: String,
 }
 
 async fn ensure_cjlint_extracted() -> Result<(), std::io::Error> {
@@ -92,6 +95,33 @@ async fn clone_repository(repo_url: &str) -> Result<String, Error> {
     let hash = commit.id();
 
     Ok(hash.to_string())
+}
+
+async fn find_package_name() -> Result<String, Error> {
+    let pattern = "/tmp/cjrepo/**/cjpm.toml";
+    let paths: Vec<_> = glob(pattern)
+        .map_err(|e| Error::from(format!("Failed to read glob pattern: {}", e)))?
+        .filter_map(Result::ok)
+        .collect();
+
+    if paths.is_empty() {
+        return Err(Error::from("No cjpm.toml found"));
+    }
+
+    let content = fs::read_to_string(&paths[0])
+        .await
+        .map_err(|e| Error::from(format!("Failed to read cjpm.toml: {}", e)))?;
+
+    let value: Value = toml::from_str(&content)
+        .map_err(|e| Error::from(format!("Failed to parse TOML: {}", e)))?;
+
+    let package_name = value
+        .get("package")
+        .and_then(|p| p.get("name"))
+        .and_then(|n| n.as_str())
+        .ok_or_else(|| Error::from("package.name not found in cjpm.toml"))?;
+
+    Ok(package_name.to_string())
 }
 
 async fn run_cjlint() -> Result<String, Error> {
@@ -174,6 +204,19 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
         }
     };
 
+    let package_name = match find_package_name().await {
+        Ok(name) => name,
+        Err(e) => {
+            return Ok(Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .header("Content-Type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"message":"Failed to find package name: {}"}}"#,
+                    e
+                )))?)
+        }
+    };
+
     // 使用 cjlint 检查代码
     let content = match run_cjlint().await {
         Ok(result) => result,
@@ -196,6 +239,7 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
             .unwrap()
             .as_secs() as i64,
         commit,
+        package_name,
     };
     let content = serde_json::to_string(&analysis_result).unwrap();
 
