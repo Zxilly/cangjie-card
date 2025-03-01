@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 仓禀（Cangjie Card）
 
-## Getting Started
+## 项目介绍
 
-First, run the development server:
+仓禀是一个代码质量评估工具，用于分析仓颉Git仓库的代码质量并生成详细的质量报告。
 
+## 主要功能
+
+- **代码质量分析**：分析Git仓库的代码，检测各种代码缺陷和问题
+- **质量评分**：根据发现的问题自动计算代码质量分数和等级（A+到D）
+- **详细报告**：生成包含所有发现问题的详细报告，包括问题位置、类型和描述
+- **问题分级**：将代码问题分为"必须修复"和"建议修复"两种级别
+- **徽章生成**：提供可嵌入到项目文档中的质量徽章
+
+## 技术栈
+
+- **前端**：
+  - Next.js 15（React 19）
+  - TypeScript
+  - Tailwind CSS
+  - Radix UI组件
+
+- **后端**：
+  - Rust
+  - Vercel Serverless Functions
+  - git2（Git操作库）
+  - Redis（用于缓存分析结果）
+
+## 使用方法
+
+1. 访问项目网站
+2. 在主页输入要分析的Git仓库地址
+3. 点击"分析代码"按钮
+4. 系统会自动克隆仓库并进行分析
+5. 查看生成的详细代码质量报告
+6. 可复制Markdown格式的质量徽章
+
+## 评分系统
+
+代码质量评分基于以下标准：
+
+- **A+** (95分以上)：代码质量极其优秀
+- **A** (90-94分)：代码质量优秀
+- **B+** (85-89分)：代码质量良好
+- **B** (80-84分)：代码质量一般
+- **C** (70-79分)：代码质量需要改进
+- **D** (0-69分)：代码质量亟待提升
+
+评分计算方法：
+- 必须修复的问题：每个扣5分
+- 建议修复的问题：每个扣2分
+
+## 本地开发
+
+1. 克隆项目
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/your-username/cangjie-card.git
+cd cangjie-card
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. 安装依赖
+```bash
+pnpm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. 启动开发服务器
+```bash
+vercel
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. 构建项目
+```bash
+vercel build --prod
+```
 
-## Learn More
+## 许可证
 
-To learn more about Next.js, take a look at the following resources:
+[MIT](LICENSE)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 贡献指南
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+欢迎提交问题报告和贡献代码。请确保遵循项目的代码风格和贡献指南。
