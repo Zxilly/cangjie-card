@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
-import { ReloadIcon } from "@radix-ui/react-icons"
+import { RefreshCw } from "lucide-react"
 
 interface RefreshButtonProps {
   repo: string
@@ -36,7 +36,7 @@ export const RefreshButton = ({ repo }: RefreshButtonProps) => {
       onClick={handleRefresh}
       disabled={isRefreshing}
     >
-      <ReloadIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
       {isRefreshing ? '正在刷新...' : '刷新分析'}
     </Button>
   )

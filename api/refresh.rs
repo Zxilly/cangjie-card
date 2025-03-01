@@ -52,6 +52,37 @@ pub struct AnalysisResult {
     pub package_name: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiResponse<T> {
+    pub success: bool,
+    pub message: Option<String>,
+    pub data: Option<T>,
+    pub error: Option<String>,
+}
+
+fn create_response<T: Serialize>(
+    status_code: StatusCode,
+    success: bool,
+    message: Option<&str>,
+    data: Option<T>,
+    error: Option<&str>,
+) -> Result<Response<Body>, Error> {
+    let response = ApiResponse {
+        success,
+        message: message.map(String::from),
+        data,
+        error: error.map(String::from),
+    };
+    
+    let body = serde_json::to_string(&response)
+        .map_err(|e| Error::from(format!("Failed to serialize response: {}", e)))?;
+    
+    Ok(Response::builder()
+        .status(status_code)
+        .header("Content-Type", "application/json")
+        .body(Body::from(body))?)
+}
+
 async fn ensure_cjlint_extracted() -> Result<(), std::io::Error> {
     let target_dir = Path::new("/tmp/cj");
     // /tmp/cj/tools/bin/cjlint
@@ -181,12 +212,13 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     let repo = match repo {
         Some(repo) => repo,
         None => {
-            return Ok(Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .header("Content-Type", "application/json")
-                .body(Body::from(
-                    r#"{"message":"repo query parameter is required"}"#,
-                ))?)
+            return create_response::<()>(
+                StatusCode::BAD_REQUEST,
+                false,
+                None,
+                None,
+                Some("repo query parameter is required"),
+            );
         }
     };
 
@@ -194,26 +226,26 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     let commit = match clone_repository(repo).await {
         Ok(commit) => commit,
         Err(e) => {
-            return Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .header("Content-Type", "application/json")
-                .body(Body::from(format!(
-                    r#"{{"message":"Failed to clone repository: {}"}}"#,
-                    e
-                )))?)
+            return create_response::<()>(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                false,
+                None,
+                None,
+                Some(&format!("Failed to clone repository: {}", e)),
+            );
         }
     };
 
     let package_name = match find_package_name().await {
         Ok(name) => name,
         Err(e) => {
-            return Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .header("Content-Type", "application/json")
-                .body(Body::from(format!(
-                    r#"{{"message":"Failed to find package name: {}"}}"#,
-                    e
-                )))?)
+            return create_response::<()>(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                false,
+                None,
+                None,
+                Some(&format!("Failed to find package name: {}", e)),
+            );
         }
     };
 
@@ -221,17 +253,29 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     let content = match run_cjlint().await {
         Ok(result) => result,
         Err(e) => {
-            return Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .header("Content-Type", "application/json")
-                .body(Body::from(format!(
-                    r#"{{"message":"Failed to run cjlint: {}"}}"#,
-                    e
-                )))?)
+            return create_response::<()>(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                false,
+                None,
+                None,
+                Some(&format!("Failed to run cjlint: {}", e)),
+            );
         }
     };
 
-    let analysis_result: Vec<AnalysisResultItem> = serde_json::from_str(&content).unwrap();
+    let analysis_result: Vec<AnalysisResultItem> = match serde_json::from_str(&content) {
+        Ok(result) => result,
+        Err(e) => {
+            return create_response::<()>(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                false,
+                None,
+                None,
+                Some(&format!("Failed to parse cjlint output: {}", e)),
+            );
+        }
+    };
+    
     let analysis_result = AnalysisResult {
         cjlint: analysis_result,
         created_at: SystemTime::now()
@@ -241,21 +285,23 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
         commit,
         package_name,
     };
-    let content = serde_json::to_string(&analysis_result).unwrap();
 
     // 将结果保存到Redis
-    if let Err(e) = save_to_redis(repo, &content).await {
-        return Ok(Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .header("Content-Type", "application/json")
-            .body(Body::from(format!(
-                r#"{{"message":"Failed to save to Redis: {}"}}"#,
-                e
-            )))?);
+    if let Err(e) = save_to_redis(repo, &serde_json::to_string(&analysis_result).unwrap()).await {
+        return create_response::<()>(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            false,
+            None,
+            None,
+            Some(&format!("Failed to save to Redis: {}", e)),
+        );
     }
 
-    return Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "application/json")
-        .body(Body::from(content))?);
+    return create_response(
+        StatusCode::OK,
+        true,
+        Some("Analysis completed successfully"),
+        Some(analysis_result),
+        None,
+    );
 }

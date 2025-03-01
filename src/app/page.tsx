@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <Card className="w-[600px]">
+    <main className="flex min-h-[calc(100vh-70px)] flex-col items-center justify-center p-4 md:p-8 overflow-x-hidden">
+      <Card className="w-full max-w-[600px] mx-auto">
         <CardHeader>
           <CardTitle className="text-center text-3xl font-bold">仓禀</CardTitle>
           <CardDescription className="text-center text-lg mt-2">

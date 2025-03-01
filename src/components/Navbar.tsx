@@ -13,7 +13,7 @@ export function Navbar() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <Link href="https://github.com/Zxilly/cangjie-report" className="text-sm text-gray-600 hover:text-gray-900">
+            <Link href="https://github.com/Zxilly/cangjie-report" className="text-sm text-gray-600 hover:text-gray-900" target="_blank" rel="noopener noreferrer">
               GitHub
             </Link>
           </div>
