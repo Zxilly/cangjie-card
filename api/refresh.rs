@@ -1,4 +1,5 @@
 use git2::build::RepoBuilder;
+use glob::glob;
 use redis::{Client, Commands};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -9,11 +10,12 @@ use std::time::SystemTime;
 use std::{collections::HashMap, io::Cursor};
 use tar::Archive;
 use tokio::fs;
+use toml::Value;
 use url::Url;
 use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
 use zstd::stream::decode_all;
-use glob::glob;
-use toml::Value;
+use rand::Rng;
+use rand::distr::Alphanumeric;
 
 static CJLINT_TAR_ZST: &'static [u8] = include!(env!("CJLINT_DATA_FILE"));
 
@@ -73,14 +75,69 @@ fn create_response<T: Serialize>(
         data,
         error: error.map(String::from),
     };
-    
+
     let body = serde_json::to_string(&response)
         .map_err(|e| Error::from(format!("Failed to serialize response: {}", e)))?;
-    
+
     Ok(Response::builder()
         .status(status_code)
         .header("Content-Type", "application/json")
         .body(Body::from(body))?)
+}
+
+/// 生成一个指定长度的随机字符串
+fn generate_random_string(length: usize) -> String {
+    rand::rng()
+        .sample_iter(Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect()
+}
+
+// 定义一个结构体来存储克隆结果
+#[derive(Debug, Clone)]
+struct CloneResult {
+    repo_path: String,
+    commit_hash: String,
+}
+
+// 定义一个结构体用于自动清理仓库目录
+struct RepoCleanup {
+    repo_path: String,
+    cleaned: bool,
+}
+
+impl RepoCleanup {
+    fn new(repo_path: String) -> Self {
+        Self {
+            repo_path,
+            cleaned: false,
+        }
+    }
+
+    // 手动清理方法，如果需要提前清理
+    async fn cleanup(&mut self) -> Result<(), Error> {
+        if !self.cleaned {
+            if let Err(e) = fs::remove_dir_all(&self.repo_path).await {
+                eprintln!("Failed to remove repository directory: {}", e);
+                return Err(Error::from(format!("Failed to remove repository directory: {}", e)));
+            }
+            self.cleaned = true;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for RepoCleanup {
+    fn drop(&mut self) {
+        if !self.cleaned {
+            if let Err(e) = std::fs::remove_dir_all(&self.repo_path) {
+                eprintln!("Failed to remove repository directory in drop: {}", e);
+            } else {
+                self.cleaned = true;
+            }
+        }
+    }
 }
 
 async fn ensure_cjlint_extracted() -> Result<(), std::io::Error> {
@@ -106,31 +163,37 @@ async fn ensure_cjlint_extracted() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-async fn clone_repository(repo_url: &str) -> Result<String, Error> {
-    let target_dir = Path::new("/tmp/cjrepo");
+async fn clone_repository(repo_url: &str) -> Result<CloneResult, Error> {
+    let random_suffix = generate_random_string(10);
+    let repo_dir_name = format!("cjrepo_{}", random_suffix);
+    let target_dir = Path::new("/tmp").join(&repo_dir_name);
+    let target_dir_str = target_dir.to_string_lossy().to_string();
 
     if target_dir.exists() {
-        fs::remove_dir_all(target_dir).await?;
+        fs::remove_dir_all(&target_dir).await?;
     }
 
-    fs::create_dir_all(target_dir).await?;
+    fs::create_dir_all(&target_dir).await?;
 
     let mut option = git2::FetchOptions::default();
     option.depth(1);
     let repo = RepoBuilder::new()
         .fetch_options(option)
-        .clone(repo_url, target_dir)?;
+        .clone(repo_url, &target_dir)?;
 
     let head = repo.head().unwrap();
     let commit = head.peel_to_commit().unwrap();
-    let hash = commit.id();
+    let hash = commit.id().to_string();
 
-    Ok(hash.to_string())
+    Ok(CloneResult {
+        repo_path: target_dir_str,
+        commit_hash: hash,
+    })
 }
 
-async fn find_package_name() -> Result<String, Error> {
-    let pattern = "/tmp/cjrepo/**/cjpm.toml";
-    let paths: Vec<_> = glob(pattern)
+async fn find_package_name(repo_path: String) -> Result<String, Error> {
+    let pattern = format!("{}/**/cjpm.toml", repo_path);
+    let paths: Vec<_> = glob(&pattern)
         .map_err(|e| Error::from(format!("Failed to read glob pattern: {}", e)))?
         .filter_map(Result::ok)
         .collect();
@@ -155,11 +218,11 @@ async fn find_package_name() -> Result<String, Error> {
     Ok(package_name.to_string())
 }
 
-async fn run_cjlint() -> Result<String, Error> {
-    let output_path = "/tmp/cjlint.json";
+async fn run_cjlint(repo_path: String) -> Result<String, Error> {
+    let output_path = format!("/tmp/{}.json", generate_random_string(10));
 
     let status = Command::new("/tmp/cj/tools/bin/cjlint")
-        .args(&["-f", "/tmp/cjrepo", "-r", "json", "-o", output_path])
+        .args(&["-f", &repo_path, "-r", "json", "-o", &output_path])
         .env("LD_LIBRARY_PATH", "/tmp/cj")
         .env("CANGJIE_HOME", "/tmp/cj")
         .status()
@@ -172,9 +235,13 @@ async fn run_cjlint() -> Result<String, Error> {
         )));
     }
 
-    let json_content = fs::read_to_string(output_path)
+    let json_content = fs::read_to_string(&output_path)
         .await
         .map_err(|e| Error::from(format!("Failed to read cjlint output: {}", e)))?;
+
+    fs::remove_file(&output_path)
+        .await
+        .map_err(|e| Error::from(format!("Failed to delete cjlint output file: {}", e)))?;
 
     Ok(json_content)
 }
@@ -222,9 +289,8 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
         }
     };
 
-    // 克隆仓库
-    let commit = match clone_repository(repo).await {
-        Ok(commit) => commit,
+    let clone_result = match clone_repository(repo).await {
+        Ok(result) => result,
         Err(e) => {
             return create_response::<()>(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -236,7 +302,9 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
         }
     };
 
-    let package_name = match find_package_name().await {
+    let mut repo_cleanup = RepoCleanup::new(clone_result.repo_path.clone());
+
+    let package_name = match find_package_name(clone_result.repo_path.clone()).await {
         Ok(name) => name,
         Err(e) => {
             return create_response::<()>(
@@ -250,7 +318,7 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     };
 
     // 使用 cjlint 检查代码
-    let content = match run_cjlint().await {
+    let content = match run_cjlint(clone_result.repo_path.clone()).await {
         Ok(result) => result,
         Err(e) => {
             return create_response::<()>(
@@ -275,14 +343,39 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
             );
         }
     };
+
+    // 处理file字段，去除repo_path前缀
+    let repo_path = clone_result.repo_path.clone();
+    let repo_path_with_slash = if repo_path.ends_with('/') {
+        repo_path.clone()
+    } else {
+        format!("{}/", repo_path)
+    };
     
+    let processed_analysis_result: Vec<AnalysisResultItem> = analysis_result
+        .into_iter()
+        .map(|mut item| {
+            // 去除file字段中的repo_path前缀
+            if item.file.starts_with(&repo_path_with_slash) {
+                item.file = item.file[repo_path_with_slash.len()..].to_string();
+            } else if item.file.starts_with(&repo_path) {
+                item.file = item.file[repo_path.len()..].to_string();
+                // 如果去除前缀后以/开头，则去除这个/
+                if item.file.starts_with('/') {
+                    item.file = item.file[1..].to_string();
+                }
+            }
+            item
+        })
+        .collect();
+
     let analysis_result = AnalysisResult {
-        cjlint: analysis_result,
+        cjlint: processed_analysis_result,
         created_at: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64,
-        commit,
+        commit: clone_result.commit_hash,
         package_name,
     };
 
@@ -295,6 +388,10 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
             None,
             Some(&format!("Failed to save to Redis: {}", e)),
         );
+    }
+
+    if let Err(e) = repo_cleanup.cleanup().await {
+        eprintln!("Warning: Failed to clean up repository: {}", e);
     }
 
     return create_response(
