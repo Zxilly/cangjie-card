@@ -45,7 +45,8 @@ class TarExtractor:
         self.so_files = [
             'cangjie/tools/lib/libcjlint.so',
             'cangjie/tools/lib/libcangjie-lsp.so',
-            'cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so'
+            'cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so',
+            'cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-runtime.so'
         ]
         # 其他需要提取的文件（非.so文件）
         self.other_files = [

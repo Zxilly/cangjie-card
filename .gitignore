@@ -45,5 +45,5 @@ next-env.d.ts
 
 target/
 scripts/*.tar
-scripts/*.tar.gz
 .env*.local
+*.tar.zst
