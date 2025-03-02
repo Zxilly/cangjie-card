@@ -221,27 +221,38 @@ async fn find_package_name(repo_path: String) -> Result<String, Error> {
 async fn run_cjlint(repo_path: String) -> Result<String, Error> {
     let output_path = format!("/tmp/{}.json", generate_random_string(10));
 
-    let status = Command::new("/tmp/cj/tools/bin/cjlint")
+    let output = Command::new("/tmp/cj/tools/bin/cjlint")
         .args(&["-f", &repo_path, "-r", "json", "-o", &output_path])
         .env("LD_LIBRARY_PATH", "/tmp/cj")
         .env("CANGJIE_HOME", "/tmp/cj")
-        .status()
+        .output()
         .map_err(|e| Error::from(format!("Failed to execute cjlint: {}", e)))?;
 
-    if !status.success() {
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined_output = format!("STDOUT:\n{}\nSTDERR:\n{}", stdout, stderr);
+
+    if !output.status.success() {
         return Err(Error::from(format!(
-            "cjlint command failed with exit code: {}",
-            status.code().unwrap_or(-1)
+            "cjlint command failed with exit code: {}\n{}",
+            output.status.code().unwrap_or(-1),
+            combined_output
         )));
     }
 
-    let json_content = fs::read_to_string(&output_path)
-        .await
-        .map_err(|e| Error::from(format!("Failed to read cjlint output: {}", e)))?;
+    let json_content = match fs::read_to_string(&output_path).await {
+        Ok(content) => content,
+        Err(e) => {
+            return Err(Error::from(format!(
+                "Failed to read cjlint output: {}\n{}",
+                e, combined_output
+            )));
+        }
+    };
 
-    fs::remove_file(&output_path)
-        .await
-        .map_err(|e| Error::from(format!("Failed to delete cjlint output file: {}", e)))?;
+    if let Err(e) = fs::remove_file(&output_path).await {
+        eprintln!("Warning: Failed to delete cjlint output file: {}", e);
+    }
 
     Ok(json_content)
 }
@@ -258,6 +269,33 @@ async fn save_to_redis(repo: &str, content: &str) -> Result<(), Error> {
     let _: () = con.set(key, content.to_string())?;
 
     Ok(())
+}
+
+/// 处理分析结果，移除文件路径中的仓库路径前缀
+fn process_analysis_result(
+    analysis_result: Vec<AnalysisResultItem>,
+    repo_path: &str,
+) -> Vec<AnalysisResultItem> {
+    let repo_path_with_slash = if repo_path.ends_with('/') {
+        repo_path.to_string()
+    } else {
+        format!("{}/", repo_path)
+    };
+    
+    analysis_result
+        .into_iter()
+        .map(|mut item| {
+            if item.file.starts_with(&repo_path_with_slash) {
+                item.file = item.file[repo_path_with_slash.len()..].to_string();
+            } else if item.file.starts_with(repo_path) {
+                item.file = item.file[repo_path.len()..].to_string();
+                if item.file.starts_with('/') {
+                    item.file = item.file[1..].to_string();
+                }
+            }
+            item
+        })
+        .collect()
 }
 
 #[tokio::main]
@@ -346,28 +384,7 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
 
     // 处理file字段，去除repo_path前缀
     let repo_path = clone_result.repo_path.clone();
-    let repo_path_with_slash = if repo_path.ends_with('/') {
-        repo_path.clone()
-    } else {
-        format!("{}/", repo_path)
-    };
-    
-    let processed_analysis_result: Vec<AnalysisResultItem> = analysis_result
-        .into_iter()
-        .map(|mut item| {
-            // 去除file字段中的repo_path前缀
-            if item.file.starts_with(&repo_path_with_slash) {
-                item.file = item.file[repo_path_with_slash.len()..].to_string();
-            } else if item.file.starts_with(&repo_path) {
-                item.file = item.file[repo_path.len()..].to_string();
-                // 如果去除前缀后以/开头，则去除这个/
-                if item.file.starts_with('/') {
-                    item.file = item.file[1..].to_string();
-                }
-            }
-            item
-        })
-        .collect();
+    let processed_analysis_result = process_analysis_result(analysis_result, &repo_path);
 
     let analysis_result = AnalysisResult {
         cjlint: processed_analysis_result,

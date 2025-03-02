@@ -12,7 +12,7 @@ interface AnalysisLoadingProps {
 }
 
 interface ApiError {
-  message: string;
+  error: string;
 }
 
 export function AnalysisLoading({ repo }: AnalysisLoadingProps) {
@@ -29,7 +29,7 @@ export function AnalysisLoading({ repo }: AnalysisLoadingProps) {
           return
         } else {
           const errorData = await response.json() as ApiError;
-          setError(errorData.message || "未知错误");
+          setError(errorData.error || "未知错误");
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "网络错误");
