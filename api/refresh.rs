@@ -16,6 +16,7 @@ use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
 use zstd::stream::decode_all;
 use rand::Rng;
 use rand::distr::Alphanumeric;
+use sysinfo::{System, MemoryRefreshKind};
 
 static CJLINT_TAR_ZST: &'static [u8] = include!(env!("CJLINT_DATA_FILE"));
 
@@ -218,8 +219,42 @@ async fn find_package_name(repo_path: String) -> Result<String, Error> {
     Ok(package_name.to_string())
 }
 
+/// 获取当前内存使用情况
+fn get_memory_usage() -> Result<String, Error> {
+    let mut system = System::new();
+    system.refresh_memory_specifics(MemoryRefreshKind::everything());
+    
+    let total_memory = system.total_memory();
+    let used_memory = system.used_memory();
+    let total_swap = system.total_swap();
+    let used_swap = system.used_swap();
+    
+    let result = format!(
+        "Memory: {:.2} GB / {:.2} GB (Used/Total)\n\
+         Swap: {:.2} GB / {:.2} GB (Used/Total)\n\
+         Memory Usage: {:.2}%",
+        used_memory as f64 / 1024.0 / 1024.0,
+        total_memory as f64 / 1024.0 / 1024.0,
+        used_swap as f64 / 1024.0 / 1024.0,
+        total_swap as f64 / 1024.0 / 1024.0,
+        (used_memory as f64 / total_memory as f64) * 100.0
+    );
+    
+    Ok(result)
+}
+
 async fn run_cjlint(repo_path: String) -> Result<String, Error> {
     let output_path = format!("/tmp/{}.json", generate_random_string(10));
+
+    // 使用函数获取并打印当前内存占用
+    match get_memory_usage() {
+        Ok(mem_info) => {
+            eprintln!("Current memory usage before running cjlint:\n{}", mem_info);
+        },
+        Err(e) => {
+            eprintln!("Failed to get memory usage: {}", e);
+        }
+    }
 
     let output = Command::new("/tmp/cj/tools/bin/cjlint")
         .args(&["-f", &repo_path, "-r", "json", "-o", &output_path])
