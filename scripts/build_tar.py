@@ -41,17 +41,17 @@ class TarExtractor:
         self.source_file = source_file
         self.output_file = output_file
         self.compression_level = compression_level
-        # 需要直接提取到根目录的.so文件
+        # 需要直接提取到根目录的文件
         self.so_files = [
             'cangjie/tools/lib/libcjlint.so',
             'cangjie/tools/lib/libcangjie-lsp.so',
-            'cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so',
-            'cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-runtime.so'
+            'cangjie/runtime/lib/linux_x86_64_llvm/libsecurec.so'
         ]
-        # 其他需要提取的文件（非.so文件）
+        # 其他需要提取的文件
         self.other_files = [
             'cangjie/tools/bin/cjlint',
-            'cangjie/tools/bin/cjfmt'
+            'cangjie/tools/bin/cjfmt',
+            'cangjie/runtime/lib/linux_x86_64_llvm/libcangjie-runtime.so'
         ]
         # 配置文件目录
         self.config_dir = 'cangjie/tools/config'
@@ -170,12 +170,9 @@ class TarExtractor:
         """
         try:
             logger.info(f"使用zstandard库压缩{tar_path}为{output_path}...")
-            # 创建一个默认大小的压缩缓冲区
             with open(tar_path, 'rb') as f_in:
                 with open(output_path, 'wb') as f_out:
-                    # 创建一个压缩器对象
-                    compressor = zstd.ZstdCompressor(level=self.compression_level)
-                    # 使用copy_stream将输入流的内容压缩后写入输出流
+                    compressor = zstd.ZstdCompressor(level=self.compression_level, threads=-1)
                     compressor.copy_stream(f_in, f_out)
             
             # 压缩后报告文件大小变化
