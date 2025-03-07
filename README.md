@@ -54,7 +54,7 @@
 
 1. 克隆项目
 ```bash
-git clone https://github.com/your-username/cangjie-card.git
+git clone https://github.com/Zxilly/cangjie-card.git
 cd cangjie-card
 ```
 
