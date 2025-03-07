@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
+[lib]
+name = "cangjie_card"
+path = "lib/mod.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 serde_json = { version = "1", features = ["raw_value"] }
