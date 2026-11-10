@@ -3,8 +3,6 @@ name: Vercel Deployment
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
 
 on:
   push:
@@ -34,9 +32,6 @@ jobs:
           rustup update
           rustup install stable
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
-      
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       
