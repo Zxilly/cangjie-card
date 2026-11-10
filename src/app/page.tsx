@@ -43,7 +43,7 @@ export default function Home() {
         <h2 id="report-features" className="text-lg font-semibold text-gray-900">从检查结果定位需要修改的代码</h2>
         <p className="mt-2">仓禀使用 cjlint 检查仓颉项目，按问题级别展示文件位置和说明，并根据检查结果计算质量评分。报告还提供 Markdown 徽章，方便放进项目 README。</p>
         <p className="mt-2">评分反映静态检查发现的问题，不能替代测试和代码审查。分析前请确认仓库可由服务访问。</p>
-        <a className="inline-block mt-3 text-blue-600 hover:underline" href="https://github.com/Zxilly/cangjie-report">查看仓禀源码与使用说明</a>
+        <a className="inline-block mt-3 text-blue-600 hover:underline" href="https://github.com/Zxilly/cangjie-card">查看仓禀源码与使用说明</a>
       </section>
     </main>
   )
