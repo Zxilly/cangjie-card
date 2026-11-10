@@ -8,6 +8,14 @@ import { calculateScore, DefectLevelColor, DefectLevelText, type DefectLevel, GR
 import { formatRelativeTime, type AnalysisResponse, type AnalysisResult } from "@/lib/types"
 import { Folder, Clipboard } from "lucide-react"
 import Link from "next/link"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "代码分析报告",
+  description: "查看本次仓颉代码质量分析结果。",
+  robots: { index: false, follow: true },
+}
+
 
 export default async function ResultPage({
   searchParams,

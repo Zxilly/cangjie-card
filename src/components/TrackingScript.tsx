@@ -1,26 +1,18 @@
 import Script from 'next/script'
-import React from 'react'
-
-function TrackingScript() {
+export default function TrackingScript() {
+  if (process.env.NODE_ENV !== 'production') return null
   return (
     <>
-      {process.env.NODE_ENV === 'production' && (
-        <Script
-          id="track"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function () {
-                var el = document.createElement('script');
-                el.setAttribute('src', 'https://trail.learningman.top/script.js');
-                el.setAttribute('data-website-id', '78c14a46-3fc8-4a5d-a643-e7079783384b');
-                document.body.appendChild(el);
-              })();
-            `,
-          }}
-        />
-      )}
+      <Script
+        id="umami"
+        strategy="afterInteractive"
+        src="https://trail.learningman.top/script.js"
+        data-website-id="78c14a46-3fc8-4a5d-a643-e7079783384b"
+        data-domains="report.cj.zxilly.dev"
+        data-exclude-search="true"
+        data-exclude-hash="true"
+        data-before-send="reportBeforeSend"
+      />
     </>
   )
 }
-
-export default TrackingScript
